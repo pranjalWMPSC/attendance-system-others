@@ -578,6 +578,38 @@
     }).join('');
   }
 
+  $('exportExcelBtn').addEventListener('click', function(){
+    var btn = this;
+    var original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Preparing…';
+    fetch('/api/reports/export').then(function(res){
+      if (res.status === 401){ window.location.href = '/login.html'; return null; }
+      if (!res.ok){
+        return res.json().catch(function(){ return {}; }).then(function(d){
+          throw new Error((d && d.error) || ('Export failed (' + res.status + ')'));
+        });
+      }
+      return res.blob();
+    }).then(function(blob){
+      if (!blob) return;
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'wmpsc-attendance-' + todayISO() + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+      showToast('Export ready.');
+    }).catch(function(err){
+      showToast('Could not export: ' + err.message, 'error');
+    }).then(function(){
+      btn.disabled = false;
+      btn.textContent = original;
+    });
+  });
+
   // ---------------- confirm modal wiring ----------------
   $('confirmYes').addEventListener('click', function(){ resolveConfirm(true); });
   $('confirmNo').addEventListener('click', function(){ resolveConfirm(false); });
