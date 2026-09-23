@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mark Attendance</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3C12 3 6 10.5 6 14.5C6 18.09 8.69 21 12 21C15.31 21 18 18.09 18 14.5C18 10.5 12 3 12 3Z" fill="#ffffff" fill-opacity="0.92"/>
+          <path d="M9.2 14.7L11.1 16.6L15 12.5" stroke="#0d8c5d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div class="brand-text">
+        <span class="brand-title">Mark Attendance</span>
+        <span class="brand-sub" id="dbStatus">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="panel">
+      <div class="card session-select-card">
+        <label>Session<select id="mark-session-select"></select></label>
+        <div id="mark-session-info" class="session-info"></div>
+      </div>
+      <div id="mark-stats" class="stat-row"></div>
+      <div id="markList" class="stack"></div>
+    </section>
+  </main>
+</div>
+
+<div id="cameraOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="cameraModalTitle">Take photo</h3>
+      <button type="button" id="cameraModalClose" class="icon-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="camera-stage" id="cameraStage">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <canvas id="cameraCanvas"></canvas>
+        <div id="cameraMsg" class="camera-msg" hidden></div>
+      </div>
+      <div class="camera-actions">
+        <button type="button" id="cameraShoot" class="btn btn-primary">Capture</button>
+        <button type="button" id="cameraRetake" class="btn btn-ghost" hidden>Retake</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="cameraCancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="cameraUse" class="btn btn-primary" disabled>Use this photo</button>
+    </div>
+  </div>
+</div>
+
+<div id="locationOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="locationModalName">Confirm present</h3>
+      <button type="button" id="locationModalClose" class="icon-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="section-label">Photo</div>
+        <div class="photo-preview filled" id="locPhotoPreview" style="width:88px;height:88px;"></div>
+      </div>
+      <div class="modal-section">
+        <div class="section-label">Location</div>
+        <div id="locLocStatus" class="hint">Detecting your location…</div>
+        <div class="form-grid">
+          <label class="span-2">Place / address <span class="opt">(optional)</span><input type="text" id="locLocText" placeholder="e.g. Main hall, WMPSC Centre"></label>
+          <label>Latitude<input type="number" step="any" id="locLat"></label>
+          <label>Longitude<input type="number" step="any" id="locLng"></label>
+        </div>
+        <button type="button" id="locRetryLoc" class="btn btn-ghost btn-sm">Retry auto-detect</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="locCancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="locConfirm" class="btn btn-primary">Mark present</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmOverlay" class="modal-overlay" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-head"><h3 id="confirmTitle">Clear mark?</h3></div>
+    <div class="modal-body"><p id="confirmMessage" class="hint"></p></div>
+    <div class="modal-actions">
+      <button type="button" id="confirmNo" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="confirmYes" class="btn btn-danger">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/js/camera.js"></script>
+<script src="/js/mark.js"></script>
+</body>
+</html>

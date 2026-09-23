@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Tracker — Admin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3C12 3 6 10.5 6 14.5C6 18.09 8.69 21 12 21C15.31 21 18 18.09 18 14.5C18 10.5 12 3 12 3Z" fill="#ffffff" fill-opacity="0.92"/>
+          <path d="M9.2 14.7L11.1 16.6L15 12.5" stroke="#0d8c5d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div class="brand-text">
+        <span class="brand-title">Attendance Tracker</span>
+        <span class="brand-sub" id="dbStatus">Connecting…</span>
+      </div>
+      <div class="topbar-right">
+        <span class="hint" id="whoami"></span>
+        <button type="button" id="logoutBtn" class="btn btn-ghost btn-sm">Sign out</button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="sessions" type="button">Sessions</button>
+      <button class="tab" data-tab="roster" type="button">Roster</button>
+      <button class="tab" data-tab="reports" type="button">Reports</button>
+    </nav>
+  </header>
+
+  <main class="main">
+    <div class="share-card">
+      <span class="share-label">Mark attendance link (no login needed)</span>
+      <span class="share-url" id="shareUrl">…</span>
+      <button type="button" id="copyShareUrl" class="btn btn-secondary btn-sm">Copy link</button>
+    </div>
+
+    <section id="panel-sessions" class="panel">
+      <div class="panel-head">
+        <h2>Create a class</h2>
+        <p class="hint">Pick a date range or hand-pick specific dates — attendance is only ever required on the dates you choose here. Every date gets the same time and venue, and becomes its own session with its own present/absent marks.</p>
+      </div>
+      <form id="sessionForm" class="card form-card">
+        <label class="span-2">Class label <span class="opt">(optional — only shown when this creates more than one date)</span><input type="text" id="sf-label" placeholder="e.g. Batch A — Module 2"></label>
+
+        <div class="mode-toggle" id="sf-mode-toggle">
+          <button type="button" class="mode-btn active" data-mode="range">Date range</button>
+          <button type="button" class="mode-btn" data-mode="specific">Specific dates</button>
+        </div>
+
+        <div id="sf-mode-range" class="mode-panel">
+          <div class="form-grid">
+            <label>From<input type="date" id="sf-range-start"></label>
+            <label>To<input type="date" id="sf-range-end"></label>
+          </div>
+          <div class="weekday-picker" id="sf-weekdays">
+            <span class="hint">Repeat on:</span>
+            <label><input type="checkbox" value="1" checked><span>Mon</span></label>
+            <label><input type="checkbox" value="2" checked><span>Tue</span></label>
+            <label><input type="checkbox" value="3" checked><span>Wed</span></label>
+            <label><input type="checkbox" value="4" checked><span>Thu</span></label>
+            <label><input type="checkbox" value="5" checked><span>Fri</span></label>
+            <label><input type="checkbox" value="6" checked><span>Sat</span></label>
+            <label><input type="checkbox" value="0" checked><span>Sun</span></label>
+          </div>
+        </div>
+
+        <div id="sf-mode-specific" class="mode-panel" hidden>
+          <div class="form-actions">
+            <input type="date" id="sf-pick-date">
+            <button type="button" id="sf-pick-add" class="btn btn-ghost btn-sm">Add date</button>
+          </div>
+          <div class="chip-list" id="sf-date-chips"></div>
+        </div>
+
+        <p class="hint" id="sf-preview"></p>
+
+        <div class="form-grid">
+          <label>Start time<input type="time" id="sf-start" required></label>
+          <label>End time<input type="time" id="sf-end" required></label>
+          <label>Radius for location check (m)<input type="number" min="0" step="10" id="sf-radius" value="300"></label>
+          <label class="span-2">Venue name<input type="text" id="sf-venue" placeholder="e.g. WMPSC Training Hall, New Delhi" required></label>
+          <label class="span-2">Venue address <span class="opt">(optional)</span><input type="text" id="sf-address" placeholder="Street, area, city"></label>
+          <label>Venue latitude <span class="opt">(optional)</span><input type="number" step="any" id="sf-lat" placeholder="28.6139"></label>
+          <label>Venue longitude <span class="opt">(optional)</span><input type="number" step="any" id="sf-lng" placeholder="77.2090"></label>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="sf-uselocation" class="btn btn-ghost btn-sm">Use my current location for venue</button>
+          <span id="sf-locstatus" class="hint"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Create class</button>
+      </form>
+      <div id="sessionBatches" class="stack"></div>
+      <div id="sessionsList" class="stack"></div>
+    </section>
+
+    <section id="panel-roster" class="panel hidden">
+      <div class="panel-head">
+        <h2>Candidate roster</h2>
+        <p class="hint">Add each candidate once. An enrollment photo is optional — a fresh camera photo is captured every time attendance is marked.</p>
+      </div>
+      <form id="candidateForm" class="card form-card">
+        <div class="form-grid">
+          <label>Name<input type="text" id="cf-name" required placeholder="Full name"></label>
+          <label>Phone <span class="opt">(optional)</span><input type="tel" id="cf-phone" placeholder="10-digit number"></label>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="cf-photo-btn" class="btn btn-ghost btn-sm">Take enrollment photo</button>
+          <span id="cf-photo-preview" class="photo-chip" hidden>
+            <img id="cf-photo-img" alt="">
+            <button type="button" id="cf-photo-remove" class="chip-remove" aria-label="Remove photo">&times;</button>
+          </span>
+        </div>
+        <button type="submit" class="btn btn-primary">Add candidate</button>
+      </form>
+      <div id="candidatesList" class="stack"></div>
+    </section>
+
+    <section id="panel-reports" class="panel hidden">
+      <div class="panel-head">
+        <h2>Reports</h2>
+        <p class="hint">Present, absent and not-marked counts for every session — select one for the full candidate-by-candidate detail with photos and location.</p>
+      </div>
+      <div class="report-summary-wrap">
+        <table class="report-summary" id="reportSummaryTable">
+          <thead><tr><th>Session</th><th>Present</th><th>Absent</th><th>Not marked</th><th>Rate</th></tr></thead>
+          <tbody id="reportSummaryTbody"></tbody>
+        </table>
+      </div>
+      <div id="report-stats" class="stat-row"></div>
+      <div class="table-wrap">
+        <table class="hist-table" id="historyTable">
+          <thead><tr><th>Candidate</th><th>Status</th><th>Time</th><th>Photo</th><th>Location</th><th>Distance</th></tr></thead>
+          <tbody id="historyTbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="cameraOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="cameraModalTitle">Take photo</h3>
+      <button type="button" id="cameraModalClose" class="icon-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="camera-stage" id="cameraStage">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <canvas id="cameraCanvas"></canvas>
+        <div id="cameraMsg" class="camera-msg" hidden></div>
+      </div>
+      <div class="camera-actions">
+        <button type="button" id="cameraShoot" class="btn btn-primary">Capture</button>
+        <button type="button" id="cameraRetake" class="btn btn-ghost" hidden>Retake</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="cameraCancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="cameraUse" class="btn btn-primary" disabled>Use this photo</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmOverlay" class="modal-overlay" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-head"><h3 id="confirmTitle">Remove?</h3></div>
+    <div class="modal-body"><p id="confirmMessage" class="hint"></p></div>
+    <div class="modal-actions">
+      <button type="button" id="confirmNo" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="confirmYes" class="btn btn-danger">Remove</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/js/camera.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

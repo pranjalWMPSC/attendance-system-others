@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Attendance Tracker</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="brand" style="justify-content:center;">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3C12 3 6 10.5 6 14.5C6 18.09 8.69 21 12 21C15.31 21 18 18.09 18 14.5C18 10.5 12 3 12 3Z" fill="#ffffff" fill-opacity="0.92"/>
+          <path d="M9.2 14.7L11.1 16.6L15 12.5" stroke="#0d8c5d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div class="brand-text">
+        <span class="brand-title">Attendance Tracker</span>
+        <span class="brand-sub">Admin sign in</span>
+      </div>
+    </div>
+    <form id="loginForm" class="form-card" style="margin-top:18px;">
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <label>Username<input type="text" id="li-username" autocomplete="username" required></label>
+        <label>Password<input type="password" id="li-password" autocomplete="current-password" required></label>
+      </div>
+      <div id="loginError" class="hint" style="color:var(--critical); display:none;"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Sign in</button>
+    </form>
+  </div>
+
+<script>
+(function(){
+  var form = document.getElementById('loginForm');
+  var errEl = document.getElementById('loginError');
+
+  // If already signed in, skip straight to the app.
+  fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d){
+    if (d && d.authenticated) window.location.href = '/index.html';
+  }).catch(function(){});
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    errEl.style.display = 'none';
+    var username = document.getElementById('li-username').value;
+    var password = document.getElementById('li-password').value;
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+        if (!res.ok){
+          errEl.textContent = (res.data && res.data.error) || 'Sign in failed.';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          return;
+        }
+        window.location.href = '/index.html';
+      }).catch(function(){
+        errEl.textContent = 'Could not reach the server.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+      });
+  });
+})();
+</script>
+</body>
+</html>
