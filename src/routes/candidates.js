@@ -4,6 +4,7 @@ const cloudinary = require('../config/cloudinary');
 const { uploadBuffer } = require('../config/cloudinaryUpload');
 const Candidate = require('../models/Candidate');
 const Attendance = require('../models/Attendance');
+const Feedback = require('../models/Feedback');
 const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
@@ -52,7 +53,8 @@ router.post('/', requireAuth, upload.single('photo'), async (req, res) => {
   }
 });
 
-// DELETE /api/candidates/:id  — admin only; also removes their attendance records and photos
+// DELETE /api/candidates/:id  — admin only; also removes their attendance
+// records, photos and feedback responses
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const cand = await Candidate.findById(req.params.id);
@@ -65,6 +67,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
       }
     }
     await Attendance.deleteMany({ candidateId: cand._id });
+    await Feedback.deleteMany({ candidateId: cand._id });
 
     if (cand.photoPublicId) {
       try { await cloudinary.uploader.destroy(cand.photoPublicId); } catch (e) { /* best effort */ }

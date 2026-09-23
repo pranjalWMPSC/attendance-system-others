@@ -127,11 +127,13 @@ input,select{font-family:'Manrope',system-ui,sans-serif;}
 .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 12px;}
 .form-grid label{display:flex; flex-direction:column; gap:5px; font-size:12.5px; font-weight:600; color:var(--text-2);}
 .form-grid label.span-2{grid-column:1 / -1;}
-input[type="text"],input[type="tel"],input[type="password"],input[type="number"],input[type="date"],input[type="time"],select{
+input[type="text"],input[type="tel"],input[type="password"],input[type="number"],input[type="date"],input[type="time"],select,textarea{
   border:1px solid var(--border); border-radius:9px; padding:9px 10px; font-size:14px;
   background:var(--surface-2); color:var(--text); outline:none;
 }
-input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);}
+textarea{font-family:inherit; resize:vertical; min-height:52px;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);}
+.modal-section label{display:flex; flex-direction:column; gap:5px; font-size:12.5px; font-weight:600; color:var(--text-2);}
 .form-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 
 .btn{
@@ -239,6 +241,32 @@ table.hist-table tr:last-child td{border-bottom:none;}
 .modal-section{display:flex; flex-direction:column; gap:8px;}
 .section-label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted);}
 .modal-actions{display:flex; justify-content:flex-end; gap:8px; padding-top:4px; border-top:1px solid var(--gridline);}
+
+/* Location capture — auto-only, no manual entry (see .loc-state below) */
+.loc-state{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px;}
+.loc-state-error{border-color:var(--critical); background:var(--critical-bg);}
+.loc-state-error .hint{color:var(--critical); flex:1;}
+.loc-check{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--good-bg); color:var(--good); font-weight:800; font-size:13px; flex:none;}
+.spinner{
+  width:18px; height:18px; border-radius:50%; flex:none;
+  border:2.5px solid var(--border); border-top-color:var(--accent);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.rate-picker{display:flex; gap:6px;}
+.rate-picker button{
+  flex:1; padding:10px 0; border-radius:9px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-weight:700; font-size:14px; cursor:pointer;
+}
+.rate-picker button.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+.rate-endpoints{display:flex; justify-content:space-between; font-size:11px; color:var(--muted);}
+.choice-picker{display:flex; gap:6px;}
+.choice-picker button{
+  flex:1; padding:9px 0; border-radius:9px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-weight:700; font-size:13px; cursor:pointer;
+}
+.choice-picker button.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
 
 .photo-capture{display:flex; align-items:center; gap:12px;}
 .photo-preview{

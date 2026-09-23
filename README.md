@@ -100,11 +100,27 @@ the moment.
   thumbnail in the row.
 
 **Open marking page (`/mark.html`, no login)**
-- Pick a session, then for each candidate: **Present** opens the camera,
-  takes a photo, then asks to confirm the location (auto-detected or typed
-  in) before saving. **Absent** is instant. **Clear** resets a mistaken mark.
-  This page intentionally does **not** show other candidates' photos or
-  captured locations — only status pills — so it stays safe to share widely.
+- Only shows **today's** session(s) — nothing scheduled for another date is
+  ever selectable here, so attendance can't be marked against the wrong day.
+  If today has just one session it's used automatically with no picker to
+  fuss with; a dropdown only appears when there's more than one.
+- For each candidate: **Present** opens the camera, takes a photo, then
+  captures the device's real GPS location automatically — there's a loading
+  spinner while that happens, then the coordinates are shown read-only and
+  "Mark present" only becomes clickable once they're in. There is no way to
+  type or edit a location here by design, since the whole point is that it
+  matches wherever the phone actually is; if it fails (permission denied, no
+  GPS fix), a "Try again" button retries the same auto-detect. **Absent** is
+  instant. **Clear** resets a mistaken mark. This page intentionally does
+  **not** show other candidates' photos or captured locations — only status
+  pills — so it stays safe to share widely.
+- Right after a candidate is marked present, a short feedback form pops up
+  for them to fill in on the spot (skippable via "Not now"). Each response is
+  tagged to that exact candidate and session, one response per pair — a
+  second "present" mark for the same class doesn't ask again. Responses are
+  stored (`Feedback` collection / `GET /api/feedback/session/:sessionId`,
+  admin-only) but there's no dedicated admin screen for reading them yet —
+  ask if you want one added to the Reports tab.
 
 ## Deploy to Vercel
 
@@ -159,13 +175,14 @@ vercel.json                      Routes every request to api/index.js and bundle
 src/config/db.js                 MongoDB connection
 src/config/cloudinary.js         Cloudinary SDK config
 src/config/cloudinaryUpload.js   Uploads a photo buffer straight to Cloudinary via the v2 SDK
-src/models/                      Mongoose schemas (Candidate, ClassSession, Attendance)
+src/models/                      Mongoose schemas (Candidate, ClassSession, Attendance, Feedback)
 src/middleware/requireAuth.js    Blocks admin-only routes for anyone not logged in
 src/routes/auth.js               Login / logout / session check
 src/routes/candidates.js         Roster — GET is public, POST/DELETE need admin login
 src/routes/sessions.js           Sessions — GET is public, POST/DELETE need admin login
 src/routes/attendance.js         Marking (present/absent/clear) — fully public, trimmed reads
 src/routes/reports.js            Admin-only: counts + full detail with photos per session
+src/routes/feedback.js           Post-attendance feedback — POST/status public, admin-only session listing
 public/index.html + js/app.js    Admin app (Sessions, Roster, Reports)
 public/mark.html + js/mark.js    Open marking page
 public/js/camera.js              Shared live-camera capture modal (no file picker, by design)
@@ -174,6 +191,10 @@ public/login.html                Admin sign-in
 
 ## A few things to know before relying on this
 
+- **The feedback form's 6 questions are currently fixed in the code**
+  (`public/mark.html`), not editable per session from the admin UI — it's
+  the same "Architecture Scholarship Session Feedback" form for every class
+  right now. Say the word if you want it configurable per session/class.
 - **The marking link has no access control beyond the URL itself.** Anyone
   who has it can mark any candidate present/absent, or clear a mark, for any
   session — that's the tradeoff of "open to anyone with the link." If you

@@ -6,10 +6,11 @@
 
   // ---------------- state ----------------
   var candidates = [];
-  var sessions = [];
+  var sessions = []; // filtered to today's date only — see loadSessions()
   var attendanceForSession = []; // trimmed: {candidateId, status, markedAt, withinRadius}
   var selectedSessionId = null;
-  var pendingMark = null; // {candidateId, sessionId, photoBlob}
+  var pendingMark = null; // {candidateId, sessionId, photoBlob, location: {lat,lng,accuracy}|null}
+  var pendingFeedback = null; // {sessionId, candidateId}
 
   // ---------------- helpers ----------------
   function $(id){ return document.getElementById(id); }
@@ -25,6 +26,11 @@
     var b = parts.length > 1 ? parts[parts.length - 1][0] : '';
     return (a + b).toUpperCase();
   }
+  function todayISO(){
+    var d = new Date();
+    var tz = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  }
   function fmtDate(iso){
     try{
       var dt = new Date(iso + 'T00:00:00');
@@ -37,31 +43,44 @@
   }
   function isNum(v){ return typeof v === 'number' && isFinite(v); }
 
-  function getLocationWithTimeout(timeoutMs){
+  // Auto-only geolocation — no manual entry anywhere in this flow. Resolves
+  // {ok:true, lat, lng, accuracy} on success, or {ok:false, reason} so the UI
+  // can show a specific message and a retry (never a way to type a location
+  // in — the whole point is that it matches the device's real position).
+  function getLocationDetailed(timeoutMs){
     return new Promise(function(resolve){
-      if (!('geolocation' in navigator)){ resolve(null); return; }
+      if (!('geolocation' in navigator)){ resolve({ ok: false, reason: 'unsupported' }); return; }
       var settled = false;
       var timer = setTimeout(function(){
-        if (!settled){ settled = true; resolve(null); }
+        if (!settled){ settled = true; resolve({ ok: false, reason: 'timeout' }); }
       }, timeoutMs);
       try{
         navigator.geolocation.getCurrentPosition(
           function(pos){
             if (settled) return;
             settled = true; clearTimeout(timer);
-            resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            resolve({ ok: true, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
           },
-          function(){
+          function(err){
             if (settled) return;
             settled = true; clearTimeout(timer);
-            resolve(null);
+            var reason = 'unavailable';
+            if (err && err.code === 1) reason = 'denied';
+            else if (err && err.code === 3) reason = 'timeout';
+            resolve({ ok: false, reason: reason });
           },
           { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
         );
       }catch(e){
-        if (!settled){ settled = true; clearTimeout(timer); resolve(null); }
+        if (!settled){ settled = true; clearTimeout(timer); resolve({ ok: false, reason: 'unavailable' }); }
       }
     });
+  }
+  function locationErrorMessage(reason){
+    if (reason === 'denied') return "Location permission was denied. Allow location access for this page in your browser's site settings, then try again.";
+    if (reason === 'timeout') return "Couldn't get a location fix in time. Make sure GPS/location services are on, then try again.";
+    if (reason === 'unsupported') return "This browser can't provide location access here.";
+    return "Location isn't available right now. Make sure GPS/location services are on, then try again.";
   }
 
   var toastTimer = null;
@@ -119,7 +138,10 @@
   }
   function loadSessions(){
     return api('/sessions').then(function(data){
-      sessions = data || [];
+      var today = todayISO();
+      // Attendance can only ever be marked for today's class(es) — a session
+      // for any other date simply doesn't show up here.
+      sessions = (data || []).filter(function(s){ return s.date === today; });
       if (!selectedSessionId && sessions.length) selectedSessionId = sessions[0]._id;
       if (selectedSessionId && !sessions.some(function(s){ return s._id === selectedSessionId; })){
         selectedSessionId = sessions.length ? sessions[0]._id : null;
@@ -163,13 +185,15 @@
   }
 
   function renderSessionSelect(){
+    var picker = $('mark-session-picker');
     var sel = $('mark-session-select');
-    if (!sessions.length){
-      sel.innerHTML = '<option value="">No sessions yet</option>';
-      sel.disabled = true;
+    // The picker (dropdown) only needs to exist at all when there's more
+    // than one session today — with zero or one, there's nothing to choose.
+    if (sessions.length <= 1){
+      picker.hidden = true;
       return;
     }
-    sel.disabled = false;
+    picker.hidden = false;
     sel.innerHTML = sessions.map(function(s){
       return '<option value="' + s._id + '"' + (s._id === selectedSessionId ? ' selected' : '') + '>' +
         escapeHtml(sessionLabel(s)) + '</option>';
@@ -187,7 +211,10 @@
   function renderSessionInfo(){
     var el = $('mark-session-info');
     var s = currentSession();
-    if (!s){ el.innerHTML = ''; return; }
+    if (!s){
+      el.innerHTML = '<span>Today, ' + escapeHtml(fmtDate(todayISO())) + '</span>';
+      return;
+    }
     var loc = isNum(s.venueLat) && isNum(s.venueLng)
       ? s.venueLat.toFixed(4) + ', ' + s.venueLng.toFixed(4)
       : 'not set';
@@ -201,7 +228,7 @@
   function renderMarkList(){
     var wrap = $('markList');
     if (!sessions.length){
-      wrap.innerHTML = '<div class="empty-state">No sessions have been set up yet — check back once one is added.</div>';
+      wrap.innerHTML = '<div class="empty-state">No class session is scheduled for today — check back on the day of your class.</div>';
       return;
     }
     if (!candidates.length){
@@ -282,22 +309,19 @@
   }
 
   function startPresentFlow(candidateId){
-    if (!selectedSessionId){ showToast('Select a session first.', 'error'); return; }
+    if (!selectedSessionId){ showToast('No session available today.', 'error'); return; }
     var c = candidates.find(function(x){ return x._id === candidateId; });
     window.openCamera('Photo — ' + (c ? c.name : ''), function(blob){
-      pendingMark = { candidateId: candidateId, sessionId: selectedSessionId, photoBlob: blob };
+      pendingMark = { candidateId: candidateId, sessionId: selectedSessionId, photoBlob: blob, location: null };
       openLocationStep(c);
     });
   }
 
+  // -------- location step: loading → captured (read-only) → confirm --------
   function openLocationStep(candidate){
     $('locationModalName').textContent = 'Confirm present — ' + (candidate ? candidate.name : '');
     var previewUrl = URL.createObjectURL(pendingMark.photoBlob);
     $('locPhotoPreview').innerHTML = '<img src="' + previewUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">';
-    $('locLocText').value = '';
-    $('locLat').value = '';
-    $('locLng').value = '';
-    $('locLocStatus').textContent = 'Detecting your location…';
     $('locationOverlay').hidden = false;
     attemptLocation();
   }
@@ -305,16 +329,26 @@
     $('locationOverlay').hidden = true;
     pendingMark = null;
   }
+  function setLocationUI(state){
+    $('locLoading').hidden = state !== 'loading';
+    $('locResult').hidden = state !== 'result';
+    $('locError').hidden = state !== 'error';
+    $('locConfirm').disabled = state !== 'result';
+  }
   function attemptLocation(){
-    $('locLocStatus').textContent = 'Detecting your location…';
-    getLocationWithTimeout(9000).then(function(loc){
-      if (!pendingMark) return;
-      if (loc){
-        $('locLat').value = loc.lat.toFixed(6);
-        $('locLng').value = loc.lng.toFixed(6);
-        $('locLocStatus').textContent = 'Location captured automatically. You can adjust it below.';
+    if (!pendingMark) return;
+    setLocationUI('loading');
+    getLocationDetailed(9000).then(function(res){
+      if (!pendingMark) return; // modal was closed while we were waiting
+      if (res.ok){
+        pendingMark.location = { lat: res.lat, lng: res.lng, accuracy: res.accuracy };
+        $('locCoords').textContent = res.lat.toFixed(6) + ', ' + res.lng.toFixed(6);
+        $('locAccuracy').textContent = isNum(res.accuracy) ? ('Accuracy ±' + Math.round(res.accuracy) + ' m') : '';
+        setLocationUI('result');
       } else {
-        $('locLocStatus').textContent = "Couldn't detect automatically — enter it below if you'd like to record it.";
+        pendingMark.location = null;
+        $('locErrorMsg').textContent = locationErrorMessage(res.reason);
+        setLocationUI('error');
       }
     });
   }
@@ -322,28 +356,95 @@
   $('locCancel').addEventListener('click', closeLocationStep);
   $('locRetryLoc').addEventListener('click', attemptLocation);
   $('locConfirm').addEventListener('click', function(){
-    if (!pendingMark) return;
+    if (!pendingMark || !pendingMark.location) return;
     var btn = this;
     btn.disabled = true;
     btn.textContent = 'Saving…';
 
+    var mark = pendingMark;
     var fd = new FormData();
-    fd.append('sessionId', pendingMark.sessionId);
-    fd.append('candidateId', pendingMark.candidateId);
-    fd.append('locLat', $('locLat').value);
-    fd.append('locLng', $('locLng').value);
-    fd.append('locText', $('locLocText').value.trim());
-    fd.append('photo', pendingMark.photoBlob, 'attendance.jpg');
+    fd.append('sessionId', mark.sessionId);
+    fd.append('candidateId', mark.candidateId);
+    fd.append('locLat', mark.location.lat);
+    fd.append('locLng', mark.location.lng);
+    fd.append('photo', mark.photoBlob, 'attendance.jpg');
 
     apiForm('/attendance/present', 'POST', fd).then(function(){
       showToast('Marked present.');
       closeLocationStep();
-      return refreshAttendanceOnly();
+      return refreshAttendanceOnly().then(function(){
+        return maybeAskFeedback(mark.sessionId, mark.candidateId);
+      });
     }).catch(function(err){
       showToast('Could not save: ' + err.message, 'error');
     }).then(function(){
       btn.disabled = false;
       btn.textContent = 'Mark present';
+    });
+  });
+
+  // -------- feedback step: shown once, right after a successful present mark --------
+  function maybeAskFeedback(sessionId, candidateId){
+    return api('/feedback/status/' + sessionId + '/' + candidateId).then(function(d){
+      if (d && !d.submitted) openFeedbackStep(sessionId, candidateId);
+    }).catch(function(){ /* non-fatal — attendance is already saved either way */ });
+  }
+  function resetFeedbackForm(){
+    document.querySelectorAll('#fb-overall button, #fb-interaction button, #fb-recommend button').forEach(function(b){
+      b.classList.remove('active');
+    });
+    $('fb-learned').value = '';
+    $('fb-topic').value = '';
+    $('fb-improve').value = '';
+  }
+  function openFeedbackStep(sessionId, candidateId){
+    pendingFeedback = { sessionId: sessionId, candidateId: candidateId };
+    resetFeedbackForm();
+    $('feedbackOverlay').hidden = false;
+  }
+  function closeFeedbackStep(){
+    $('feedbackOverlay').hidden = true;
+    pendingFeedback = null;
+  }
+  document.querySelectorAll('.rate-picker, .choice-picker').forEach(function(group){
+    group.addEventListener('click', function(e){
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      group.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b === btn); });
+    });
+  });
+  $('feedbackModalClose').addEventListener('click', closeFeedbackStep);
+  $('feedbackSkip').addEventListener('click', closeFeedbackStep);
+  $('feedbackSubmit').addEventListener('click', function(){
+    if (!pendingFeedback) return;
+    var overallBtn = document.querySelector('#fb-overall button.active');
+    var interactionBtn = document.querySelector('#fb-interaction button.active');
+    var recommendBtn = document.querySelector('#fb-recommend button.active');
+    var learned = $('fb-learned').value.trim();
+    if (!overallBtn || !interactionBtn){ showToast('Please answer both rating questions.', 'error'); return; }
+    if (!learned){ showToast('Please share what you learned.', 'error'); return; }
+    if (!recommendBtn){ showToast('Please answer the recommend question.', 'error'); return; }
+
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    apiJSON('/feedback', 'POST', {
+      sessionId: pendingFeedback.sessionId,
+      candidateId: pendingFeedback.candidateId,
+      overall: overallBtn.getAttribute('data-value'),
+      interaction: interactionBtn.getAttribute('data-value'),
+      learned: learned,
+      topic: $('fb-topic').value.trim(),
+      improve: $('fb-improve').value.trim(),
+      recommend: recommendBtn.getAttribute('data-value')
+    }).then(function(){
+      showToast('Thanks for the feedback!');
+      closeFeedbackStep();
+    }).catch(function(err){
+      showToast('Could not submit: ' + err.message, 'error');
+    }).then(function(){
+      btn.disabled = false;
+      btn.textContent = 'Submit feedback';
     });
   });
 

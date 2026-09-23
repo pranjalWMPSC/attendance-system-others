@@ -28,7 +28,9 @@
   <main class="main">
     <section class="panel">
       <div class="card session-select-card">
-        <label>Session<select id="mark-session-select"></select></label>
+        <div id="mark-session-picker" hidden>
+          <label>Today's sessions<select id="mark-session-select"></select></label>
+        </div>
         <div id="mark-session-info" class="session-info"></div>
       </div>
       <div id="mark-stats" class="stat-row"></div>
@@ -74,18 +76,88 @@
       </div>
       <div class="modal-section">
         <div class="section-label">Location</div>
-        <div id="locLocStatus" class="hint">Detecting your location…</div>
-        <div class="form-grid">
-          <label class="span-2">Place / address <span class="opt">(optional)</span><input type="text" id="locLocText" placeholder="e.g. Main hall, WMPSC Centre"></label>
-          <label>Latitude<input type="number" step="any" id="locLat"></label>
-          <label>Longitude<input type="number" step="any" id="locLng"></label>
+        <div id="locLoading" class="loc-state">
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="locLocStatus">Capturing your location…</span>
         </div>
-        <button type="button" id="locRetryLoc" class="btn btn-ghost btn-sm">Retry auto-detect</button>
+        <div id="locResult" class="loc-state" hidden>
+          <span class="loc-check" aria-hidden="true">&#10003;</span>
+          <div>
+            <div id="locCoords" class="mono"></div>
+            <div id="locAccuracy" class="hint"></div>
+          </div>
+        </div>
+        <div id="locError" class="loc-state loc-state-error" hidden>
+          <span id="locErrorMsg" class="hint"></span>
+          <button type="button" id="locRetryLoc" class="btn btn-ghost btn-sm">Try again</button>
+        </div>
+        <p class="hint">Your location is captured automatically from this device and can't be typed in or edited — that's what keeps it meaningful.</p>
       </div>
     </div>
     <div class="modal-actions">
       <button type="button" id="locCancel" class="btn btn-ghost">Cancel</button>
-      <button type="button" id="locConfirm" class="btn btn-primary">Mark present</button>
+      <button type="button" id="locConfirm" class="btn btn-primary" disabled>Mark present</button>
+    </div>
+  </div>
+</div>
+
+<div id="feedbackOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Architecture Scholarship Session Feedback</h3>
+      <button type="button" id="feedbackModalClose" class="icon-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Thank you for attending the session. This form takes about 2 minutes to complete.</p>
+
+      <div class="modal-section">
+        <div class="section-label">1. How would you rate the session overall?</div>
+        <div class="rate-picker" id="fb-overall">
+          <button type="button" data-value="1">1</button>
+          <button type="button" data-value="2">2</button>
+          <button type="button" data-value="3">3</button>
+          <button type="button" data-value="4">4</button>
+          <button type="button" data-value="5">5</button>
+        </div>
+        <div class="rate-endpoints"><span>Poor</span><span>Excellent</span></div>
+      </div>
+
+      <div class="modal-section">
+        <div class="section-label">2. How useful was the interaction with the architects?</div>
+        <div class="rate-picker" id="fb-interaction">
+          <button type="button" data-value="1">1</button>
+          <button type="button" data-value="2">2</button>
+          <button type="button" data-value="3">3</button>
+          <button type="button" data-value="4">4</button>
+          <button type="button" data-value="5">5</button>
+        </div>
+        <div class="rate-endpoints"><span>Not useful</span><span>Extremely useful</span></div>
+      </div>
+
+      <div class="modal-section">
+        <label>3. What was the most valuable thing you learned?<textarea id="fb-learned" rows="2"></textarea></label>
+      </div>
+
+      <div class="modal-section">
+        <label>4. Was there a topic you wanted the architects to cover in more detail? <span class="opt">(optional)</span><textarea id="fb-topic" rows="2"></textarea></label>
+      </div>
+
+      <div class="modal-section">
+        <label>5. How can we improve future sessions? <span class="opt">(optional)</span><textarea id="fb-improve" rows="2"></textarea></label>
+      </div>
+
+      <div class="modal-section">
+        <div class="section-label">6. Would you recommend a session like this to another student?</div>
+        <div class="choice-picker" id="fb-recommend">
+          <button type="button" data-value="Yes">Yes</button>
+          <button type="button" data-value="No">No</button>
+          <button type="button" data-value="Maybe">Maybe</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="feedbackSkip" class="btn btn-ghost">Not now</button>
+      <button type="button" id="feedbackSubmit" class="btn btn-primary">Submit feedback</button>
     </div>
   </div>
 </div>

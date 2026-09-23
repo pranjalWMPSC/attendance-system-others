@@ -13,6 +13,7 @@ const candidateRoutes = require('./routes/candidates');
 const sessionRoutes = require('./routes/sessions');
 const attendanceRoutes = require('./routes/attendance');
 const reportsRoutes = require('./routes/reports');
+const feedbackRoutes = require('./routes/feedback');
 
 // Kick the connection off as soon as this module loads (once per cold start
 // locally or on a serverless platform; mongoose queues queries until it's
@@ -46,6 +47,7 @@ app.use('/api/candidates', candidateRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/reports', requireAuth, reportsRoutes);
+app.use('/api/feedback', feedbackRoutes); // mixed: POST + status are public, GET /session/:id is admin-only (enforced inside the router)
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 

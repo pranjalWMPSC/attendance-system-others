@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const ClassSession = require('../models/ClassSession');
 const Attendance = require('../models/Attendance');
+const Feedback = require('../models/Feedback');
 const cloudinary = require('../config/cloudinary');
 const requireAuth = require('../middleware/requireAuth');
 
@@ -18,6 +19,7 @@ async function deleteSessionsCascade(sessionDocs) {
     }
   }
   await Attendance.deleteMany({ sessionId: { $in: ids } });
+  await Feedback.deleteMany({ sessionId: { $in: ids } });
   await ClassSession.deleteMany({ _id: { $in: ids } });
 }
 
@@ -57,17 +59,13 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/sessions/:id — admin only; also removes that session's attendance records and photos
+// DELETE /api/sessions/:id — admin only; also removes that session's attendance
+// records, photos and feedback responses
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const records = await Attendance.find({ sessionId: req.params.id });
-    for (const r of records) {
-      if (r.photoPublicId) {
-        try { await cloudinary.uploader.destroy(r.photoPublicId); } catch (e) { /* best effort */ }
-      }
-    }
-    await Attendance.deleteMany({ sessionId: req.params.id });
-    await ClassSession.findByIdAndDelete(req.params.id);
+    const doc = await ClassSession.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Session not found' });
+    await deleteSessionsCascade([doc]);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
