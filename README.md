@@ -93,11 +93,15 @@ the moment.
 - **Reports** — a summary table across all sessions (present / absent / not
   marked / rate). Selecting a session shows the full candidate-by-candidate
   detail: status, timestamp, captured photo, location, and distance from the
-  venue (flagged "Off-site" outside the allowed radius). **"Export all to
+  venue (flagged "Off-site" outside the allowed radius). Below that, a
+  **Session feedback** section lists every feedback response for the
+  selected session — average overall/interaction ratings, how many would
+  recommend it, and each candidate's full answers. **"Export all to
   Excel"** downloads one `.xlsx` covering every session together — a Summary
   sheet (counts per session) plus an "All Attendance" sheet with one row per
   candidate per session, each present mark's captured photo embedded as a
-  thumbnail in the row.
+  thumbnail in the row (feedback isn't in the export yet — say the word if
+  you want it added as its own sheet).
 
 **Open marking page (`/mark.html`, no login)**
 - Only shows **today's** session(s) — nothing scheduled for another date is
@@ -117,10 +121,7 @@ the moment.
 - Right after a candidate is marked present, a short feedback form pops up
   for them to fill in on the spot (skippable via "Not now"). Each response is
   tagged to that exact candidate and session, one response per pair — a
-  second "present" mark for the same class doesn't ask again. Responses are
-  stored (`Feedback` collection / `GET /api/feedback/session/:sessionId`,
-  admin-only) but there's no dedicated admin screen for reading them yet —
-  ask if you want one added to the Reports tab.
+  second "present" mark for the same class doesn't ask again.
 
 ## Deploy to Vercel
 

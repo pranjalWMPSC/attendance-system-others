@@ -505,7 +505,12 @@
       }
       renderReportSummaryTable();
       if (selectedReportSessionId) loadReportDetail(selectedReportSessionId);
-      else { $('report-stats').innerHTML = ''; $('historyTbody').innerHTML = '<tr><td colspan="6" class="hint" style="padding:16px;">Nothing to show yet.</td></tr>'; }
+      else {
+        $('report-stats').innerHTML = '';
+        $('historyTbody').innerHTML = '<tr><td colspan="6" class="hint" style="padding:16px;">Nothing to show yet.</td></tr>';
+        $('feedback-stats').innerHTML = '';
+        $('feedbackList').innerHTML = '';
+      }
     }).catch(function(err){ showToast('Could not load reports: ' + err.message, 'error'); });
   }
 
@@ -530,10 +535,64 @@
   }
 
   function loadReportDetail(sessionId){
-    return api('/reports/session/' + sessionId).then(function(data){
-      renderReportStats(data.counts);
-      renderReportTable(data.rows);
-    }).catch(function(err){ showToast('Could not load report: ' + err.message, 'error'); });
+    return Promise.all([
+      api('/reports/session/' + sessionId).then(function(data){
+        renderReportStats(data.counts);
+        renderReportTable(data.rows);
+      }),
+      api('/feedback/session/' + sessionId).then(renderFeedback).catch(function(err){
+        $('feedback-stats').innerHTML = '';
+        $('feedbackList').innerHTML = '<div class="empty-state">Could not load feedback: ' + escapeHtml(err.message) + '</div>';
+      })
+    ]).catch(function(err){ showToast('Could not load report: ' + err.message, 'error'); });
+  }
+
+  function renderFeedback(rows){
+    rows = rows || [];
+    var statsEl = $('feedback-stats');
+    var listEl = $('feedbackList');
+    if (!rows.length){
+      statsEl.innerHTML = '';
+      listEl.innerHTML = '<div class="empty-state">No feedback submitted for this session yet.</div>';
+      return;
+    }
+    var avgOverall = rows.reduce(function(sum, r){ return sum + r.overall; }, 0) / rows.length;
+    var avgInteraction = rows.reduce(function(sum, r){ return sum + r.interaction; }, 0) / rows.length;
+    var recommendYes = rows.filter(function(r){ return r.recommend === 'Yes'; }).length;
+    statsEl.innerHTML =
+      '<div class="stat-tile"><span class="stat-value">' + rows.length + '</span><span class="stat-label">Responses</span></div>' +
+      '<div class="stat-tile accent"><span class="stat-value">' + avgOverall.toFixed(1) + '</span><span class="stat-label">Avg. overall</span></div>' +
+      '<div class="stat-tile accent"><span class="stat-value">' + avgInteraction.toFixed(1) + '</span><span class="stat-label">Avg. interaction</span></div>' +
+      '<div class="stat-tile good"><span class="stat-value">' + recommendYes + '/' + rows.length + '</span><span class="stat-label">Would recommend</span></div>';
+
+    listEl.innerHTML = rows.map(function(r){
+      var recommendPill = r.recommend === 'Yes'
+        ? '<span class="pill pill-good">Recommend: Yes</span>'
+        : r.recommend === 'No'
+          ? '<span class="pill pill-critical">Recommend: No</span>'
+          : '<span class="pill pill-warning">Recommend: Maybe</span>';
+      var extra = '';
+      if (r.topic) extra += '<div class="feedback-qa"><div class="section-label">Topic wanted in more detail</div><p class="feedback-answer">' + escapeHtml(r.topic) + '</p></div>';
+      if (r.improve) extra += '<div class="feedback-qa"><div class="section-label">How to improve future sessions</div><p class="feedback-answer">' + escapeHtml(r.improve) + '</p></div>';
+      return (
+        '<div class="card feedback-card">' +
+          '<div class="feedback-head">' +
+            '<div class="row-title">' + escapeHtml(r.candidateName) + '</div>' +
+            '<div class="hint mono">' + fmtDateTime(r.submittedAt) + '</div>' +
+          '</div>' +
+          '<div class="feedback-ratings">' +
+            '<span class="pill pill-muted">Overall ' + r.overall + '/5</span>' +
+            '<span class="pill pill-muted">Interaction ' + r.interaction + '/5</span>' +
+            recommendPill +
+          '</div>' +
+          '<div class="feedback-qa">' +
+            '<div class="section-label">Most valuable thing learned</div>' +
+            '<p class="feedback-answer">' + escapeHtml(r.learned) + '</p>' +
+          '</div>' +
+          extra +
+        '</div>'
+      );
+    }).join('');
   }
 
   function renderReportStats(counts){
