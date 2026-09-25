@@ -108,15 +108,18 @@ the moment.
   ever selectable here, so attendance can't be marked against the wrong day.
   If today has just one session it's used automatically with no picker to
   fuss with; a dropdown only appears when there's more than one.
-- For each candidate: **Present** opens the camera, takes a photo, then
-  captures the device's real GPS location automatically — there's a loading
-  spinner while that happens, then the coordinates are shown read-only and
-  "Mark present" only becomes clickable once they're in. There is no way to
-  type or edit a location here by design, since the whole point is that it
-  matches wherever the phone actually is; if it fails (permission denied, no
-  GPS fix), a "Try again" button retries the same auto-detect. **Absent** is
-  instant. **Clear** resets a mistaken mark. This page intentionally does
-  **not** show other candidates' photos or captured locations — only status
+- For each candidate: **Present** opens the camera, takes a photo, then tries
+  to capture the device's real GPS location automatically — there's a
+  loading spinner while that happens, and the coordinates show up read-only
+  if it succeeds. **Location is optional, not a gate**: "Mark present" is
+  clickable the whole time, so attendance can be marked from anywhere,
+  whether or not a location was captured. There's still no way to type a
+  location in by hand — it's either the device's real auto-detected
+  position or nothing, never a typed-in value — and a "Try again" button is
+  offered if the first attempt failed (permission denied, no GPS fix,
+  timeout) in case you want to retry it. **Absent** is instant. **Clear**
+  resets a mistaken mark. This page intentionally does **not** show other
+  candidates' photos or captured locations — only status
   pills — so it stays safe to share widely.
 - Right after a candidate is marked present, a short feedback form pops up
   for them to fill in on the spot (skippable via "Not now"). Each response is

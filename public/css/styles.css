@@ -250,8 +250,8 @@ table.hist-table tr:last-child td{border-bottom:none;}
 
 /* Location capture — auto-only, no manual entry (see .loc-state below) */
 .loc-state{display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px;}
-.loc-state-error{border-color:var(--critical); background:var(--critical-bg);}
-.loc-state-error .hint{color:var(--critical); flex:1;}
+.loc-state-warn{border-color:var(--warning); background:var(--warning-bg); flex-wrap:wrap;}
+.loc-state-warn .hint{color:color-mix(in srgb, var(--warning) 55%, var(--text)); flex:1; min-width:180px;}
 .loc-check{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--good-bg); color:var(--good); font-weight:800; font-size:13px; flex:none;}
 .spinner{
   width:18px; height:18px; border-radius:50%; flex:none;

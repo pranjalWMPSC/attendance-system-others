@@ -77,10 +77,12 @@
     });
   }
   function locationErrorMessage(reason){
-    if (reason === 'denied') return "Location permission was denied. Allow location access for this page in your browser's site settings, then try again.";
-    if (reason === 'timeout') return "Couldn't get a location fix in time. Make sure GPS/location services are on, then try again.";
-    if (reason === 'unsupported') return "This browser can't provide location access here.";
-    return "Location isn't available right now. Make sure GPS/location services are on, then try again.";
+    // Location is optional — none of these block marking present, they just
+    // explain why no location will be attached this time.
+    if (reason === 'denied') return "Location permission was denied — marking present without a location. Try again if you'd like to allow it.";
+    if (reason === 'timeout') return "Couldn't get a location fix in time — marking present without a location. Try again if you'd like to retry.";
+    if (reason === 'unsupported') return "This browser can't provide location access here — marking present without a location.";
+    return "Location isn't available right now — marking present without a location. Try again if you'd like to retry.";
   }
 
   var toastTimer = null;
@@ -330,10 +332,12 @@
     pendingMark = null;
   }
   function setLocationUI(state){
+    // Purely informational — location is optional, so none of these states
+    // gate the "Mark present" button. Attendance can be marked from
+    // anywhere, with or without a captured location.
     $('locLoading').hidden = state !== 'loading';
     $('locResult').hidden = state !== 'result';
     $('locError').hidden = state !== 'error';
-    $('locConfirm').disabled = state !== 'result';
   }
   function attemptLocation(){
     if (!pendingMark) return;
@@ -356,7 +360,7 @@
   $('locCancel').addEventListener('click', closeLocationStep);
   $('locRetryLoc').addEventListener('click', attemptLocation);
   $('locConfirm').addEventListener('click', function(){
-    if (!pendingMark || !pendingMark.location) return;
+    if (!pendingMark) return;
     var btn = this;
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -365,8 +369,12 @@
     var fd = new FormData();
     fd.append('sessionId', mark.sessionId);
     fd.append('candidateId', mark.candidateId);
-    fd.append('locLat', mark.location.lat);
-    fd.append('locLng', mark.location.lng);
+    // Location is optional — only sent when it was actually captured, so
+    // attendance can still be marked present from anywhere.
+    if (mark.location){
+      fd.append('locLat', mark.location.lat);
+      fd.append('locLng', mark.location.lng);
+    }
     fd.append('photo', mark.photoBlob, 'attendance.jpg');
 
     apiForm('/attendance/present', 'POST', fd).then(function(){
