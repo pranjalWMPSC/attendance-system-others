@@ -297,6 +297,13 @@ table.hist-table tr:last-child td{border-bottom:none;}
 .camera-msg .btn{margin-top:10px;}
 .camera-actions{display:flex; gap:8px; justify-content:center;}
 .camera-actions .btn{flex:1; max-width:200px;}
+.camera-flip-btn{
+  position:absolute; top:10px; right:10px; z-index:2;
+  width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.4); color:#fff; cursor:pointer;
+}
+.camera-flip-btn:active{background:rgba(0,0,0,0.65);}
+.camera-flip-btn:disabled{opacity:0.5; cursor:not-allowed;}
 
 /* Reports */
 .report-summary-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:12px;}

@@ -5,6 +5,11 @@
 // If the browser can't grant camera access, the person sees why and a way
 // to retry — there is no other way to supply a photo here.
 //
+// Defaults to the front (selfie) camera, since every photo taken here is a
+// headshot of the person holding the phone — with a flip button (shown only
+// when the device actually has more than one camera) in case the back
+// camera is ever needed instead.
+//
 // Usage: window.openCamera('Take photo', function(blob){ ... use blob ... });
 (function () {
   'use strict';
@@ -20,6 +25,8 @@
   var capturedBlob = null;
   var onCaptureCb = null;
   var ready = false;
+  var currentFacing = 'user'; // 'user' = front/selfie camera, 'environment' = back camera
+  var hasMultipleCameras = null; // null = not checked yet this page load
 
   function els() {
     return {
@@ -28,6 +35,7 @@
       video: $('cameraVideo'),
       canvas: $('cameraCanvas'),
       msg: $('cameraMsg'),
+      flip: $('cameraFlip'),
       shoot: $('cameraShoot'),
       retake: $('cameraRetake'),
       use: $('cameraUse'),
@@ -36,12 +44,38 @@
     };
   }
 
+  function requestStream(facing) {
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false });
+  }
+
+  function armCaptureReady() {
+    var e = els();
+    e.shoot.disabled = true;
+    // Wait for the stream to actually have frame data before allowing a
+    // capture — enabling the button immediately can race ahead of the
+    // video's first frame and draw a blank/0x0 canvas.
+    var enable = function () { e.shoot.disabled = false; };
+    if (e.video.readyState >= 2) enable();
+    else e.video.addEventListener('loadeddata', enable, { once: true });
+  }
+
+  function detectMultiCamera() {
+    if (!navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function (devices) {
+      var videoInputs = devices.filter(function (d) { return d.kind === 'videoinput'; });
+      hasMultipleCameras = videoInputs.length > 1;
+      var e = els();
+      if (e.flip) e.flip.hidden = !hasMultipleCameras;
+    }).catch(function () { /* can't tell — leave the flip button hidden */ });
+  }
+
   function showError(text) {
     var e = els();
     e.msg.innerHTML = escapeHtml(text) + '<div><button type="button" class="btn btn-secondary btn-sm" id="cameraTryAgain">Try again</button></div>';
     e.msg.hidden = false;
     e.video.hidden = true;
     e.shoot.disabled = true;
+    if (e.flip) e.flip.hidden = true;
     var tryBtn = $('cameraTryAgain');
     if (tryBtn) tryBtn.addEventListener('click', startCamera);
   }
@@ -63,6 +97,7 @@
     e.shoot.disabled = true;
     e.retake.hidden = true;
     e.use.disabled = true;
+    if (e.flip) { e.flip.hidden = true; e.flip.disabled = false; }
     capturedBlob = null;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -71,20 +106,18 @@
     }
 
     stopStream();
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+    requestStream(currentFacing)
       .catch(function () {
-        // Some devices (most laptops) have no "environment" camera — retry with any camera.
+        // The preferred facing mode isn't available on this device (e.g. a
+        // laptop with only one camera) — fall back to whatever camera exists.
         return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       })
       .then(function (s) {
         stream = s;
         e.video.srcObject = s;
-        // Wait for the stream to actually have frame data before allowing a
-        // capture — enabling the button immediately can race ahead of the
-        // video's first frame and draw a blank/0x0 canvas.
-        var enable = function () { e.shoot.disabled = false; };
-        if (e.video.readyState >= 2) enable();
-        else e.video.addEventListener('loadeddata', enable, { once: true });
+        armCaptureReady();
+        if (hasMultipleCameras === null) detectMultiCamera();
+        else if (e.flip) e.flip.hidden = !hasMultipleCameras;
       })
       .catch(function (err) {
         var msg = 'Camera access was blocked.';
@@ -93,6 +126,27 @@
         else if (err && err.name === 'NotReadableError') msg = 'The camera is already in use by another app.';
         showError(msg);
       });
+  }
+
+  function flipCamera() {
+    var e = els();
+    var nextFacing = currentFacing === 'user' ? 'environment' : 'user';
+    e.flip.disabled = true;
+    e.shoot.disabled = true;
+    requestStream(nextFacing).then(function (s) {
+      stopStream();
+      stream = s;
+      currentFacing = nextFacing;
+      e.video.srcObject = s;
+      armCaptureReady();
+      e.flip.disabled = false;
+    }).catch(function () {
+      // This device doesn't actually have the other camera (or it's busy
+      // elsewhere) — keep the current, working stream running rather than
+      // breaking the flow over it.
+      e.shoot.disabled = false;
+      e.flip.disabled = false;
+    });
   }
 
   function capture() {
@@ -118,6 +172,7 @@
       e.video.style.display = 'none';
       canvas.style.display = 'block';
       e.shoot.hidden = true;
+      if (e.flip) e.flip.hidden = true;
       e.retake.hidden = false;
       e.use.disabled = !blob;
     }, 'image/jpeg', 0.8);
@@ -140,6 +195,7 @@
     e.retake.addEventListener('click', startCamera);
     e.cancel.addEventListener('click', close);
     e.close.addEventListener('click', close);
+    if (e.flip) e.flip.addEventListener('click', flipCamera);
     e.use.addEventListener('click', function () {
       var cb = onCaptureCb;
       var blob = capturedBlob;

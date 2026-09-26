@@ -56,7 +56,11 @@ npm start
 
 Photos on both pages are captured live through `getUserMedia` (a real camera
 stream you capture a frame from) — there is deliberately no file/gallery
-picker anywhere, so a photo can't be swapped in from an old picture.
+picker anywhere, so a photo can't be swapped in from an old picture. It opens
+the **front (selfie) camera by default**, since every photo taken here is a
+headshot of the person holding the phone. A flip button appears in the
+corner of the camera view — but only on devices that actually have more
+than one camera — to switch to the back camera if you ever need it.
 
 The catch: browsers only allow `getUserMedia` on a **secure context** —
 `https://`, or `http://localhost` on the *same* machine. That means:
@@ -70,10 +74,11 @@ The catch: browsers only allow `getUserMedia` on a **secure context** —
     or `ngrok http 4000`), or
   - a real deployment behind HTTPS once you're past local testing.
 
-Location (GPS) has the same secure-context rule, but degrades gracefully —
-if auto-detect fails, the page just asks you to type the location in. Camera
-has no such fallback by design, since the whole point is a photo taken in
-the moment.
+Location (GPS) has the same secure-context rule, but it's optional — if
+auto-detect fails or is denied, attendance is simply marked without a
+location rather than blocking or asking for one to be typed in. Camera has
+no such fallback by design, since the whole point is a photo taken in the
+moment.
 
 ## How it works
 
