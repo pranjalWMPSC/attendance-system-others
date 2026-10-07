@@ -23,6 +23,13 @@ connectDB().catch(() => {});
 
 const app = express();
 
+// On Vercel (and most hosts) the app sits behind a proxy that terminates
+// HTTPS, so Express only ever sees plain HTTP from it. Without this,
+// express-session thinks the connection is insecure and silently refuses to
+// send a `secure` cookie — which looks exactly like "login works, then
+// immediately logged out".
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(
   session({
@@ -34,10 +41,9 @@ app.use(
       maxAge: 1000 * 60 * 60 * 24 * 7,
       httpOnly: true,
       sameSite: 'lax',
-      // Vercel deployments are always served over https, so the session
-      // cookie can be marked secure there without breaking local http
-      // development.
-      secure: process.env.NODE_ENV === 'production'
+      // 'auto' = secure over https (Vercel, via trust proxy above), plain over
+      // http (local development) — no NODE_ENV guesswork needed.
+      secure: 'auto'
     }
   })
 );
