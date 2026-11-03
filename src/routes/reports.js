@@ -3,6 +3,7 @@ const ExcelJS = require('exceljs');
 const Candidate = require('../models/Candidate');
 const ClassSession = require('../models/ClassSession');
 const Attendance = require('../models/Attendance');
+const Feedback = require('../models/Feedback');
 
 const router = express.Router();
 // Mounted with requireAuth in server.js — every route here is admin-only.
@@ -117,16 +118,20 @@ router.get('/session/:sessionId', async (req, res) => {
   }
 });
 
-// GET /api/reports/export — one .xlsx covering every session together: a
-// Summary sheet (present/absent/not-marked per session) plus an "All
-// Attendance" sheet with one row per candidate per session, each present
-// mark's captured photo embedded as a thumbnail right in the row.
+// GET /api/reports/export — one .xlsx covering every session together:
+//   • Summary        — present/absent/not-marked per session, plus feedback
+//                      response count and average ratings
+//   • All Attendance — one row per candidate per session, each present
+//                      mark's captured photo embedded as a thumbnail
+//   • Feedback       — one row per submitted feedback response, tagged with
+//                      its session and candidate
 router.get('/export', async (req, res) => {
   try {
-    const [sessions, candidates, attendance] = await Promise.all([
+    const [sessions, candidates, attendance, feedback] = await Promise.all([
       ClassSession.find(),
       Candidate.find().sort({ name: 1 }),
-      Attendance.find()
+      Attendance.find(),
+      Feedback.find()
     ]);
     const sortedSessions = sortSessions(sessions);
     const totalCandidates = candidates.length;
@@ -137,6 +142,14 @@ router.get('/export', async (req, res) => {
       if (!bySession.has(key)) bySession.set(key, []);
       bySession.get(key).push(a);
     }
+
+    const feedbackBySession = new Map();
+    for (const f of feedback) {
+      const key = String(f.sessionId);
+      if (!feedbackBySession.has(key)) feedbackBySession.set(key, []);
+      feedbackBySession.get(key).push(f);
+    }
+    const candidateById = new Map(candidates.map((c) => [String(c._id), c]));
 
     // Fetch every distinct photo once, however many sessions/candidates
     // reference it, so the same image is never downloaded twice.
@@ -170,7 +183,11 @@ router.get('/export', async (req, res) => {
       { header: 'Present', key: 'present', width: 10 },
       { header: 'Absent', key: 'absent', width: 10 },
       { header: 'Not marked', key: 'unmarked', width: 12 },
-      { header: 'Rate', key: 'rate', width: 9 }
+      { header: 'Rate', key: 'rate', width: 9 },
+      { header: 'Feedback responses', key: 'fbCount', width: 19 },
+      { header: 'Avg. overall (1–5)', key: 'fbOverall', width: 18 },
+      { header: 'Avg. interaction (1–5)', key: 'fbInteraction', width: 22 },
+      { header: 'Would recommend (Yes)', key: 'fbYes', width: 21 }
     ];
     summary.getRow(1).font = { bold: true };
     sortedSessions.forEach((s) => {
@@ -179,6 +196,9 @@ router.get('/export', async (req, res) => {
       const absent = records.filter((r) => r.status === 'absent').length;
       const unmarked = Math.max(0, totalCandidates - present - absent);
       const rate = totalCandidates ? Math.round((present / totalCandidates) * 100) : 0;
+      const fbs = feedbackBySession.get(String(s._id)) || [];
+      const avg = (field) =>
+        fbs.length ? Math.round((fbs.reduce((sum, f) => sum + f[field], 0) / fbs.length) * 10) / 10 : '';
       summary.addRow({
         date: s.date,
         start: s.startTime,
@@ -187,7 +207,11 @@ router.get('/export', async (req, res) => {
         present,
         absent,
         unmarked,
-        rate: rate + '%'
+        rate: rate + '%',
+        fbCount: fbs.length,
+        fbOverall: avg('overall'),
+        fbInteraction: avg('interaction'),
+        fbYes: fbs.length ? fbs.filter((f) => f.recommend === 'Yes').length + ' of ' + fbs.length : ''
       });
     });
 
@@ -246,6 +270,51 @@ router.get('/export', async (req, res) => {
             ext: { width: 46, height: 46 }
           });
         }
+      });
+    });
+
+    // ---- Feedback sheet ----
+    const fbSheet = workbook.addWorksheet('Feedback');
+    fbSheet.columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Start', key: 'start', width: 9 },
+      { header: 'End', key: 'end', width: 9 },
+      { header: 'Venue', key: 'venue', width: 24 },
+      { header: 'Candidate', key: 'name', width: 22 },
+      { header: 'Phone', key: 'phone', width: 14 },
+      { header: 'Overall (1–5)', key: 'overall', width: 14 },
+      { header: 'Interaction with architects (1–5)', key: 'interaction', width: 20 },
+      { header: 'Most valuable thing learned', key: 'learned', width: 44 },
+      { header: 'Topic wanted in more detail', key: 'topic', width: 36 },
+      { header: 'How to improve future sessions', key: 'improve', width: 36 },
+      { header: 'Would recommend', key: 'recommend', width: 16 },
+      { header: 'Submitted at', key: 'submittedAt', width: 18 }
+    ];
+    fbSheet.getRow(1).font = { bold: true };
+    fbSheet.getRow(1).alignment = { wrapText: true, vertical: 'middle' };
+    ['learned', 'topic', 'improve'].forEach((key) => {
+      fbSheet.getColumn(key).alignment = { wrapText: true, vertical: 'top' };
+    });
+    sortedSessions.forEach((s) => {
+      const fbs = (feedbackBySession.get(String(s._id)) || [])
+        .map((f) => ({ f, c: candidateById.get(String(f.candidateId)) }))
+        .sort((a, b) => ((a.c && a.c.name) || '').localeCompare((b.c && b.c.name) || ''));
+      fbs.forEach(({ f, c }) => {
+        fbSheet.addRow({
+          date: s.date,
+          start: s.startTime,
+          end: s.endTime,
+          venue: s.venueName,
+          name: c ? c.name : 'Unknown',
+          phone: (c && c.phone) || '',
+          overall: f.overall,
+          interaction: f.interaction,
+          learned: f.learned,
+          topic: f.topic || '',
+          improve: f.improve || '',
+          recommend: f.recommend,
+          submittedAt: f.submittedAt ? new Date(f.submittedAt).toLocaleString() : ''
+        });
       });
     });
 

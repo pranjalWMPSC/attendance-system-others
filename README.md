@@ -102,11 +102,17 @@ moment.
   **Session feedback** section lists every feedback response for the
   selected session — average overall/interaction ratings, how many would
   recommend it, and each candidate's full answers. **"Export all to
-  Excel"** downloads one `.xlsx` covering every session together — a Summary
-  sheet (counts per session) plus an "All Attendance" sheet with one row per
-  candidate per session, each present mark's captured photo embedded as a
-  thumbnail in the row (feedback isn't in the export yet — say the word if
-  you want it added as its own sheet).
+  Excel"** downloads one `.xlsx` covering every session together:
+  - **Summary** — counts per session, plus feedback columns (number of
+    responses, average overall and interaction ratings, and "would recommend:
+    Yes" as "N of M").
+  - **All Attendance** — one row per candidate per session, each present
+    mark's captured photo embedded as a thumbnail in the row.
+  - **Feedback** — one row per feedback response, tagged with the session
+    date/time/venue and the candidate's name and phone, with all six answers
+    (overall rating, interaction rating, most valuable thing learned, topic
+    wanted in more detail, how to improve, would recommend) and the time it
+    was submitted.
 
 **Open marking page (`/mark.html`, no login)**
 - Only shows **today's** session(s) — nothing scheduled for another date is
